@@ -19,47 +19,27 @@ export async function makeScaffolding(config: Config): Promise<void> {
     path.join(templatesSourcePath, config.template),
   ].forEach((source) => fs.copySync(source, tempDestPath));
 
+  if (fs.existsSync(path.join(tempDestPath, "gitignore")))
+    fs.renameSync(
+      path.join(tempDestPath, "gitignore"),
+      path.join(tempDestPath, ".gitignore")
+    );
+
   const result = await generate(tempDestPath, config.destination, config, {
     overwrite: config.overwrite,
   });
 
   fs.removeSync(tempDestPath);
 
-  result.forEach((fileInfo) => {
-    // Edge case: Because create-probot-app is idempotent, if a file is named
-    // gitignore in the initializing directory, no .gitignore file will be
-    // created.
-    if (
-      fileInfo.skipped === false &&
-      path.basename(fileInfo.path) === "gitignore"
-    ) {
-      try {
-        const gitignorePath = path.join(
-          path.dirname(fileInfo.path),
-          ".gitignore"
-        );
-
-        if (fs.existsSync(gitignorePath)) {
-          const data = fs.readFileSync(fileInfo.path, { encoding: "utf8" });
-          fs.appendFileSync(gitignorePath, data);
-          fs.unlinkSync(fileInfo.path);
-        } else {
-          fs.renameSync(fileInfo.path, gitignorePath);
-        }
-        fileInfo.path = gitignorePath;
-      } catch (err) {
-        throw err;
-      }
-    }
-
+  result.forEach((fileInfo) =>
     console.log(
       `${
         fileInfo.skipped
           ? yellow("skipped existing file")
           : green("created file")
       }: ${fileInfo.path}`
-    );
-  });
+    )
+  );
 
   console.log(green("\nFinished scaffolding files!"));
 }
